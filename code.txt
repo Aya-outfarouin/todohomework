@@ -1,0 +1,126 @@
+#!/bin/bash
+
+FILE="tasks.txt"
+
+# Ensure the tasks file exists
+if [ ! -f "$FILE" ]; then
+    touch "$FILE"
+fi
+
+function show_usage() {
+    echo "Usage: $0 [option] [arguments]"
+    echo "Options:"
+    echo "  add \"TASK\" \"DUE DATE\" - Add a new task"
+    echo "  list - List all tasks"
+    echo "  listday \"DATE\" - List all tasks for a specific date"
+    echo "  search \"TITLE\" - Search tasks by title"
+    echo "  delete TASK_ID - Delete a task by ID"
+    echo "  update TASK_ID \"NEW TASK\" \"NEW DUE DATE\" - Update an existing task"
+    echo "  mark TASK_ID - Mark a task as completed"
+}
+
+function add_task() {
+    if [ -z "$1" ] || [ -z "$2" ]; then
+        echo "Error: Missing task or due date."
+        show_usage
+        exit 1
+    fi
+    echo "$2 - [ ] $1" >> "$FILE"
+    echo "Task added."
+}
+
+function list_tasks() {
+    cat -n "$FILE"
+}
+
+function list_tasks_by_day() {
+    if [ -z "$1" ]; then
+        echo "Error: Missing date."
+        show_usage
+        exit 1
+    fi
+    echo "Tasks for $1:"
+    echo "Completed:"
+    grep "$1" "$FILE" | grep '\[x\]' | cat -n
+    echo "Uncompleted:"
+    grep "$1" "$FILE" | grep -v '\[x\]' | cat -n
+}
+
+function search_task_by_title() {
+    if [ -z "$1" ]; then
+        echo "Error: Missing title."
+        show_usage
+        exit 1
+    fi
+    echo "Searching for tasks with title containing '$1':"
+    grep "$1" "$FILE" | cat -n
+}
+
+function delete_task() {
+    if [ -z "$1" ]; then
+        echo "Error: Missing task ID."
+        show_usage
+        exit 1
+    fi
+    sed -i.bak "$1d" "$FILE" && rm "$FILE.bak"
+    echo "Task deleted."
+}
+
+function update_task() {
+    if [ -z "$1" ] || [ -z "$2" ] || [ -z "$3" ]; then
+        echo "Error: Missing arguments for update."
+        show_usage
+        exit 1
+    fi
+    local TASK_ID=$1
+    local NEW_TASK="$2"
+    local NEW_DATE="$3"
+    local NEW_LINE="$NEW_DATE - [ ] $NEW_TASK"
+    sed -i.bak "${TASK_ID}s|.*|$NEW_LINE|" "$FILE" && rm "$FILE.bak"
+    echo "Task updated."
+}
+
+function mark_task() {
+    if [ -z "$1" ]; then
+        echo "Error: Missing task ID."
+        show_usage
+        exit 1
+    fi
+    local TASK_ID=$1
+    local MARKED_LINE
+    MARKED_LINE=$(sed "${TASK_ID}q;d" "$FILE" | sed "s/\[ \]/\[x\]/")
+    sed -i.bak "${TASK_ID}s|.*|$MARKED_LINE|" "$FILE" && rm "$FILE.bak"
+    echo "Task marked as completed."
+}
+
+if [ $# -eq 0 ]; then
+    show_usage
+    exit 1
+fi
+
+case "$1" in
+    add)
+        add_task "$2" "$3"
+        ;;
+    list)
+        list_tasks
+        ;;
+    listday)
+        list_tasks_by_day "$2"
+        ;;
+    search)
+        search_task_by_title "$2"
+        ;;
+    delete)
+        delete_task "$2"
+        ;;
+    update)
+        update_task "$2" "$3" "$4"
+        ;;
+    mark)
+        mark_task "$2"
+        ;;
+    *)
+        show_usage
+        ;;
+esac
